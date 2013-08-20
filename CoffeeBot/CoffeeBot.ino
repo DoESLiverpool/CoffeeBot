@@ -19,6 +19,7 @@
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Xively.h>
+#include <EEPROM.h>
 
 // Global Variables
 const int analogPin = A2;
@@ -29,11 +30,15 @@ float cups = 0.0;
 float maxCups = 6.0;
 float maxVolts = 0.0;
 // Set the size of the digital bracketing for the filtering
-int currentSensorValue = -100.0;
-int positiveBracket = 10;
-int negativeBracket = 5;
+int currentSensorValue = 0;
 char coffeeStatus[] = "";
-int tareWeight = 660;
+int tareWeight = 0;
+// From testing: 
+//      empty sensor value = 660;
+//      sensor value with empty pots = 710;
+//      full sensor value (12 cups) = 842;
+// therefore potWeight = 710-660 = 50;
+// and cupWeight = (842-710)/12 = 11;
 int potWeight = 50;
 int cupWeight = 11;
 volatile boolean setTare = 0;
@@ -65,7 +70,8 @@ XivelyDatastream datastreams[] = {
   XivelyDatastream(fillLevelId, strlen(fillLevelId), DATASTREAM_FLOAT),
   XivelyDatastream(messageId, strlen(messageId), DATASTREAM_BUFFER, bufferValue, bufferSize)
 };
-// Finally, wrap the datastreams into a feed also set the feed ID to your feed.
+// Finally, wrap the datastreams into a feed
+// also set the feed ID to your feed.
 XivelyFeed feed(106284, datastreams, 5 /* number of datastreams */);
 
 EthernetClient client;
@@ -104,6 +110,11 @@ void setup() {
   delay(500);
   analogReference(EXTERNAL);
   
+  // Take the tareReading from the EEPROM
+  tareWeight = EEPROM.read(50) * 255 + EEPROM.read(51);
+  Serial.print("current tareWeight:");
+  Serial.println(tareWeight);
+  
   //attach the interrupt call for changing the setTare flag
   pinMode(tareLight, OUTPUT);
   pinMode(2, INPUT);
@@ -128,8 +139,12 @@ void loop() {
     
     tareWeight = tareReading;
     setTare = 0;
-    
     delay(250);
+
+    // record the tare to EEEPROM
+    EEPROM.write(50, highByte(tareWeight));
+    EEPROM.write(51, lowByte(tareWeight));
+
     digitalWrite(tareLight, LOW);
     delay(100);
     
@@ -161,10 +176,6 @@ void loop() {
     Serial.println(currentSensorValue);
 
     // set the number of cups from the sensor value
-    // From testing: 
-    //      empty sensor value = 710;
-    //      full sensor value (12 cups) = 842;
-    //      therefore steps per cup = 11;
     cups = float(currentSensorValue - tareWeight - potWeight) / float(cupWeight);
     cups = constrain(cups, 0.0, 12.0);
     datastreams[3].setFloat(cups);
