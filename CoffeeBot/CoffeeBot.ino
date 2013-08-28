@@ -56,6 +56,7 @@ char rawVoltageId[] = "sensor_voltage";
 char filteredSensorId[] = "filtered_sensor";
 char fillLevelId[] = "number_of_cups";
 char messageId[] = "status_message";
+char tareId[] = "tare_point";
 const int bufferSize = 40;
 char bufferValue[bufferSize]; // enough space to store the string we're going to send
 XivelyDatastream datastreams[] = {
@@ -63,10 +64,11 @@ XivelyDatastream datastreams[] = {
   XivelyDatastream(rawVoltageId, strlen(rawVoltageId), DATASTREAM_FLOAT),
   XivelyDatastream(filteredSensorId, strlen(filteredSensorId), DATASTREAM_FLOAT),
   XivelyDatastream(fillLevelId, strlen(fillLevelId), DATASTREAM_FLOAT),
-  XivelyDatastream(messageId, strlen(messageId), DATASTREAM_BUFFER, bufferValue, bufferSize)
+  XivelyDatastream(messageId, strlen(messageId), DATASTREAM_BUFFER, bufferValue, bufferSize),
+  XivelyDatastream(tareId, strlen(tareId), DATASTREAM_FLOAT),
 };
 // Finally, wrap the datastreams into a feed also set the feed ID to your feed.
-XivelyFeed feed(106284, datastreams, 5 /* number of datastreams */);
+XivelyFeed feed(106284, datastreams, 6 /* number of datastreams */);
 
 EthernetClient client;
 XivelyClient Xivelyclient(client);
@@ -108,6 +110,9 @@ void setup() {
   pinMode(tareLight, OUTPUT);
   pinMode(2, INPUT);
   attachInterrupt(0, call_tare, RISING);
+  
+  // ready the current tare point for sending
+  datastreams[5].setFloat(tareWeight);
 }
 
 // the loop routine runs over and over again forever:
@@ -135,6 +140,10 @@ void loop() {
     
     Serial.print("new tareWeight:");
     Serial.println(tareWeight);
+    
+    // ready the current tare point for sending
+    datastreams[5].setFloat(tareWeight);
+
   }
   
   //check the sensor value
